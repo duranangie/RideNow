@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ridenow_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ridenow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ridenow"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: ridenow_backend
+    restart: always
+    # IMPORTANTE: usar uv run para asegurar deps
+    command: python3 -m uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      # monta el código, PERO mantenemos .venv separada en un volumen
+      - ./backend:/app
+      - backend_venv:/app/.venv
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+
+volumes:
+  postgres_data:
+  backend_venv:
